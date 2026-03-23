@@ -1,0 +1,64 @@
+[
+  {
+    "test": "no_auth_basic",
+    "status": 200,
+    "vector_dims": 384,
+    "vulnerable": true
+  },
+  {
+    "test": "rate_limit",
+    "requests": 20,
+    "success": 20,
+    "elapsed_sec": 0.42,
+    "rate_limited": false
+  },
+  {
+    "test": "large_input_100",
+    "chars": 100,
+    "status": 200,
+    "time_sec": 0.168
+  },
+  {
+    "test": "large_input_500",
+    "chars": 500,
+    "status": 200,
+    "time_sec": 0.02
+  },
+  {
+    "test": "large_input_1000",
+    "chars": 1000,
+    "status": 200,
+    "time_sec": 0.021
+  },
+  {
+    "test": "large_input_5000",
+    "chars": 5000,
+    "status": 200,
+    "time_sec": 0.026
+  },
+  {
+    "test": "special_sql_injection",
+    "status": 200,
+    "responded": true
+  },
+  {
+    "test": "special_path_traversal",
+    "status": 200,
+    "responded": true
+  },
+  {
+    "test": "special_null_byte",
+    "status": 200,
+    "responded": true
+  },
+  {
+    "test": "special_unicode",
+    "status": 200,
+    "responded": true
+  },
+  {
+    "test": "special_html_entities",
+    "status": 200,
+    "responded": true
+  }
+]
