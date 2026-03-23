@@ -319,8 +319,32 @@ Or in LiteLLM's own `general_settings.blocked_routes` if that mechanism is avail
 
 ---
 
-## 8. References
+## 8. Relationship to Prior CVEs
 
+### CVE-2024-2952 — SSTI in `/completions` via `hf_chat_template`
+
+A prior SSTI was reported in LiteLLM and assigned CVE-2024-2952. That vulnerability is located in:
+- **Endpoint:** `POST /completions`
+- **Code path:** `hf_chat_template` method, which processes the `chat_template` field from `tokenizer_config.json`
+- **Trigger:** Attacker-controlled Hugging Face model config
+
+**This report describes a separate, distinct vulnerability:**
+
+| Dimension | CVE-2024-2952 | This report |
+|---|---|---|
+| Endpoint | `POST /completions` | `POST /prompts/test` |
+| Code file | `hf_chat_template` handler | `dotprompt/prompt_manager.py` |
+| Template source | `tokenizer_config.json` | HTTP request body (`dotprompt_content`) |
+| Auth trigger | Requires model upload or model name pointing to attacker-controlled HF repo | Any valid API key, direct HTTP call |
+
+The fact that CVE-2024-2952 was patched in the `hf_chat_template` code path without auditing other Jinja2 `Environment` usages in the same codebase is the direct cause of this new vulnerability remaining unaddressed.
+
+---
+
+## 9. References
+
+- [LiteLLM on huntr.com](https://huntr.com/repos/berriai/litellm)
+- [CVE-2024-2952 — Prior SSTI in LiteLLM](https://vulert.com/vuln-db/CVE-2024-2952)
 - [Jinja2 Sandbox documentation](https://jinja.palletsprojects.com/en/stable/sandbox/)
 - [OWASP: Server-Side Template Injection](https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/07-Input_Validation_Testing/18-Testing_for_Server_Side_Template_Injection)
 - [PortSwigger: SSTI](https://portswigger.net/web-security/server-side-template-injection)
@@ -329,10 +353,11 @@ Or in LiteLLM's own `general_settings.blocked_routes` if that mechanism is avail
 
 ---
 
-## 9. Disclosure Timeline
+## 10. Disclosure Timeline
 
 | Date | Event |
 |---|---|
 | 2026-03-23 | Vulnerability discovered during source-code review of LiteLLM v1.82.6 |
 | 2026-03-23 | Local exploitation confirmed (RCE via `catch_warnings` pivot) |
-| 2026-03-23 | Report submitted to vendor via `support@berri.ai` per SECURITY.md |
+| 2026-03-23 | Distinguished from prior CVE-2024-2952 (different endpoint and code path) |
+| 2026-03-23 | Report submitted to `huntr.com/repos/berriai/litellm` |
