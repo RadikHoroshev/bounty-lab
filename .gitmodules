@@ -1,0 +1,15 @@
+[submodule "targets/bentoml"]
+	path = targets/bentoml
+	url = https://github.com/bentoml/BentoML.git
+[submodule "targets/mlflow"]
+	path = targets/mlflow
+	url = https://github.com/mlflow/mlflow.git
+[submodule "targets/nltk"]
+	path = targets/nltk
+	url = https://github.com/nltk/nltk.git
+[submodule "targets/safetensors"]
+	path = targets/safetensors
+	url = https://github.com/huggingface/safetensors.git
+[submodule "targets/vllm"]
+	path = targets/vllm
+	url = https://github.com/vllm-project/vllm.git
