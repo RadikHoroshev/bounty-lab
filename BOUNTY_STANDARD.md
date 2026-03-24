@@ -112,7 +112,7 @@
 
 ## Процесс: от находки до отправки
 
-### Фаза 1 — Черновик отчёта
+### Фаза 1 — Черновик отчёта `[SONNET]`
 
 ```
 1. Открыть шаблон отчёта
@@ -124,55 +124,80 @@
 4. Сохранить: findings/<target>-<type>.md
 ```
 
-### Фаза 2 — Верификационный скрипт
+### Фаза 2 — Верификационный скрипт `[SONNET]`
 
 ```
 1. Написать скрипт по стандарту (три шага, exit codes, docstring)
-2. Запустить: python3 -m py_compile verify_*.py
-3. Проверить неиспользуемые импорты
-4. Запустить: python3 verify_*.py
-5. Убедиться:
-   - Step 2 показывает RED (уязвимость подтверждена)
-   - Step 3 показывает GREEN (фикс работает)
-   - Exit code = 0
-5. Сохранить: findings/verify_<target>_<type>.py
+2. Сохранить: findings/verify_<target>_<type>.py
+3. Записать в SUBMISSION_STATUS.md → статус: "READY FOR QA"
 ```
 
-### Фаза 3 — Финальная проверка перед отправкой
+### Фаза 3 — QA скрипта `[HAIKU]`
 
 ```
-[ ] Отчёт: заголовок точно описывает уязвимость (тип + вектор + репозиторий)
-[ ] Target: Owner/repo в точности соответствует GitHub URL
-[ ] Version: проверена в репозитории (не угадана)
-[ ] CVSS: каждый вектор обоснован в секции Justification
-[ ] Root Cause: file + function + line number — проверены curl raw.githubusercontent.com
-[ ] PoC: команды работают без модификаций
-[ ] Fix: предложен конкретный код, а не общие рекомендации
-[ ] Verify script: запущен, exit code 0, оба шага GREEN/RED как ожидается
-[ ] Нет опечаток в именах файлов, функций, команд
+Промпт агента: см. AGENT_ROLES.md → "Промпт для Haiku: QA скрипта"
+
+[ ] python3 -m py_compile — синтаксис
+[ ] Все import используются
+[ ] Exit codes соответствуют docstring
+[ ] python3 verify_*.py — Step 2 RED, Step 3 GREEN, exit 0
+[ ] Нет неиспользуемых import
+
+Результат → SUBMISSION_STATUS.md: QA PASS / QA FAIL + детали
 ```
 
-### Фаза 4 — Заполнение формы huntr
+### Фаза 4 — Финальная проверка отчёта `[HAIKU]`
 
 ```
-Поля huntr (порядок заполнения):
-1. Repository — Owner/repo (GitHub URL)
-2. Version — из отчёта
-3. Title — заголовок отчёта (без префикса "#")
-4. CVSS Score — числовое значение
-5. CWE — номер (только число, без "CWE-")
-6. Description — секция Summary + Root Cause
-7. Impact — секция Impact (таблица)
-8. Proof of Concept — секция PoC
-9. Attachments — verify_*.py или ссылка на файл
+Промпт агента: см. AGENT_ROLES.md → "Промпт для Haiku: Финальная проверка отчёта"
+
+[ ] Заголовок точно описывает уязвимость (тип + вектор + репозиторий)
+[ ] Target: Owner/repo совпадает с GitHub URL
+[ ] Version: проверена в репозитории
+[ ] CVSS: все 8 компонент обоснованы в Justification
+[ ] Root Cause: file + line — проверены curl raw.githubusercontent.com
+[ ] PoC: команды синтаксически валидны
+[ ] Fix: конкретный код, не общие слова
+[ ] Нет слов: "возможно", "мог бы", "вероятно", "потенциально"
+
+Результат → SUBMISSION_STATUS.md: PREFLIGHT PASS / FAIL + детали
 ```
 
-### Фаза 5 — После отправки
+### Фаза 5 — Заполнение формы huntr `[HAIKU]`
 
 ```
-1. Сохранить URL отчёта: https://huntr.com/bounties/<UUID>
-2. Обновить project_security_research.md в memory
-3. Обновить SUBMISSION_STATUS.md
+Промпт агента: см. AGENT_ROLES.md → "Промпт для Haiku: Заполнение формы huntr"
+
+Поля (порядок заполнения, источник в отчёте):
+1. Repository   ← строка "**Target:**"
+2. Version      ← строка "**Version:**"
+3. Title        ← первая строка без "#"
+4. CVSS Score   ← число из "**CVSS:**"
+5. CWE          ← только цифры из "**CWE:**"
+6. Description  ← секции Summary + Root Cause
+7. Impact       ← секция Impact
+8. PoC          ← секция Proof of Concept
+9. Attachments  ← verify_*.py
+
+После отправки → записать URL в SUBMISSION_STATUS.md
+```
+
+### Фаза 6 — После отправки `[HAIKU]`
+
+```
+Промпт агента: см. AGENT_ROLES.md → "Промпт для Haiku: Git commit + push"
+
+1. git add findings/*.md findings/verify_*.py findings/SUBMISSION_STATUS.md
+2. git commit + git push
+3. Обновить SUBMISSION_STATUS.md: статус → SUBMITTED + huntr URL + дата
+```
+
+### Фаза 6b — Обновление memory `[SONNET]`
+
+```
+Только Sonnet: обновить memory/project_security_research.md
+- Добавить huntr URL
+- Обновить статус и bounty potential
 ```
 
 ---
