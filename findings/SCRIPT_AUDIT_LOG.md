@@ -71,6 +71,16 @@
   ```
 - **Статус:** ✅ Исправлено
 
+### Нерешённые замечания (minor, некритично)
+
+#### NOTE-SSTI-01 — Нет CVSS в баннере скрипта
+- **Тип:** BOUNTY_STANDARD compliance
+- **Проблема:** Баннер содержит `CVE candidate — distinct from CVE-2024-2952` но не содержит CVSS score. По стандарту CVSS должен быть в баннере для сверки с отчётом и формой huntr.
+- **Обнаружено:** Stage 3 review 2026-03-24
+- **Решение:** не реализовано — скрипт уже отправлен на huntr, изменение не влияет на корректность вывода
+
+---
+
 ### Проверка после исправлений
 
 ```
@@ -116,6 +126,32 @@ $ python3 verify_litellm_ssti.py
   ```
 - **Статус:** ✅ Исправлено
 
+### Второй аудит (2026-03-24, после submission)
+
+#### BUG-SSRF-03 — Capture server никогда не захватывал запросы (логический баг)
+- **Тип:** Logic error — Step 2 всегда возвращал False
+- **Проблема:** `TEST_URLS` содержал `169.254.169.254`, `localhost:6379` и т.д., но ни один из них не указывал на capture server (`127.0.0.1:18877`). LiteLLM форвардил запросы на эти URL, capture server на порту 18877 ничего не получал → `all_vulnerable` всегда `False` → `sys.exit(1)`.
+- **Исправление:** добавлена константа `CAPTURE_URL = f"http://127.0.0.1:{CAPTURE_PORT}/chat/completions"`. Step 2 теперь отправляет один запрос с `api_base=CAPTURE_URL` и проверяет факт захвата.
+- **Статус:** ✅ Исправлено
+
+#### BUG-SSRF-04 — Exit code 2 ("не воспроизведено") отсутствовал
+- **Тип:** Exit code semantics
+- **Проблема:** `sys.exit(0 if vuln_confirmed else 1)` — когда LiteLLM доступен но SSRF не захвачен, скрипт возвращал `1` (ошибка зависимостей). По стандарту должен возвращать `2` (не воспроизведено).
+- **Исправление:** `if vuln_confirmed: sys.exit(0) else: sys.exit(2)`
+- **Статус:** ✅ Исправлено
+
+#### BUG-SSRF-05 — `localhost` не блокировался в `is_safe_url()`
+- **Тип:** Logic error — validator incomplete
+- **Проблема:** `ipaddress.ip_address("localhost")` бросает `ValueError` (не IP), поэтому `localhost` проходил через валидатор как "safe hostname". Step 3 показывал "FIX INCOMPLETE — Localhost Redis not blocked".
+- **Исправление:** добавлен `"localhost"`, `"ip6-localhost"`, `"ip6-loopback"` в `blocked_hosts`.
+- **Статус:** ✅ Исправлено
+
+#### BUG-SSRF-06 — CVSS в баннере 8.2 vs реальный 7.7
+- **Тип:** Documentation mismatch
+- **Проблема:** баннер скрипта (`CVSS: 8.2 High`) не совпадал с CVSS 7.7 в отчёте на huntr.
+- **Исправление:** `8.2` → `7.7`
+- **Статус:** ✅ Исправлено
+
 ### Нерешённые замечания (minor, некритично)
 
 #### NOTE-SSRF-01 — Нет проверки доступности порта 18877
@@ -155,7 +191,7 @@ $ python3 verify_litellm_ssti.py
 | Скрипт | Баги найдено | Исправлено | Замечания (minor) |
 |--------|-------------|------------|-------------------|
 | `verify_litellm_ssti.py` | 3 | 3 | 0 |
-| `verify_litellm_ssrf.py` | 2 | 2 | 1 |
+| `verify_litellm_ssrf.py` | 6 | 6 | 1 |
 | `verify_ollama_ssrf.py` | 0 | 0 | 2 |
 | **Итого** | **5** | **5** | **3** |
 
