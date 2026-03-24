@@ -6,16 +6,20 @@ Researcher: Rodion Goroshev | 2026-03-23
 Reproduces the exact Jinja2 environment used by LiteLLM v1.82.6 and
 confirms both the vulnerable behaviour and that the proposed fix blocks it.
 
-Requirements: pip install jinja2
-No running LiteLLM instance needed — tests the root cause directly.
+Requirements:
+  - Python 3.8+
+  - jinja2 >= 2.10  (pip install jinja2)
+
+No running LiteLLM instance needed — tests the Jinja2 environment directly.
+No network access required.
 
 Exit codes:
-  0 — vulnerability confirmed (server IS vulnerable)
-  1 — environment error (jinja2 not installed)
+  0 — vulnerability confirmed (RCE reproduced)
+  1 — dependency error (jinja2 not installed or arithmetic test failed)
+  2 — not reproduced (environment may already be patched)
 """
 
 import sys
-import subprocess
 
 BOLD  = "\033[1m"
 RED   = "\033[91m"
@@ -165,7 +169,7 @@ def main():
         sys.exit(0)
     else:
         print(f"{GREEN}RESULT: Not reproduced in this environment{RESET}")
-        sys.exit(0)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
